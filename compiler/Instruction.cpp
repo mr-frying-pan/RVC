@@ -4,6 +4,8 @@
 #include <iostream>
 #include "constants.hpp"
 
+const Instruction Instruction::zero;
+
 uint32_t Instruction::getValue() const {
   return this->value.to_ulong();
 }
@@ -33,6 +35,3 @@ IType::IType(const uint8_t opcode, const uint8_t funct3, const uint8_t rd, const
        << "\t0:  " << this->value[0]  << endl;
   
 }
-
-ADDI::ADDI(const uint8_t rd, const uint8_t rs1, const uint16_t imm) :
-  IType(constants::opcode::OP_IMM, constants::funct3::ADDI, rd, rs1, imm) {}

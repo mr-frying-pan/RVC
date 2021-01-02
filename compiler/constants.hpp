@@ -3,11 +3,13 @@
 
 namespace constants {
   namespace opcode {
-    const uint8_t OP_IMM = 0x2;
+    const uint8_t OP_IMM = 0x1;
   };
 
   namespace funct3 {
-    const uint8_t ADDI = 0x3;
+    const uint8_t ADDI  = 0x1;
+    const uint8_t SLTI  = 0x2;
+    const uint8_t SLTIU = 0x3;
   };
 };
 
