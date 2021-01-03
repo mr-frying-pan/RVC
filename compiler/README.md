@@ -1,8 +1,7 @@
 # RISC-V compiler, disassembler and interpreter
 
-I am using my own executable format, and my own values for many constants left undefined in the spec (e.g. OP-IMM,
-or maybe I am blind, but I'd say <kbd>Ctrl</kbd>+<kbd>f</kbd> should have enough eyes). Not following any ideology,
-workflow or anything like that, this is mostly just to learn C++.
+I am using my own executable format. Not following any ideology, workflow or anything like that, this is mostly just
+to learn C++.
 
 ## Instruction sets
 

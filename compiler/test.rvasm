@@ -1,8 +1,16 @@
 leeeebl:
 instruction
 instruction
-ADDI x1 x2 x3
-ADDI x1 y1 x3
-ADDI 12 12 12
-
-ADDI x4 x5 1
+ADDI	x1 x2
+SLTI	x1 x2 15 aasd
+SLTIU	x1 x2 1
+ANDI	x32 x33 2
+ORI	x4 x5 4
+XORI	x3 x5 8
+SLLI	x1 x2 16
+SRLI	x1 x2 32
+SRAI    x1 x2 64
+LUI	x1 32767
+AUIPC	x1 32767
+ADD	x1 x2 x3
+SUB	x1 x2 x3
