@@ -13,12 +13,12 @@ Instruction::Instruction(const uint32_t opcode,
 			 const uint32_t rd,
 			 const uint32_t rs1,
 			 const uint32_t rs2)
-  : value((opcode << 0)
-	  | (funct3 << 12)
-	  | (rd << 7)
-	  | (rs1 << 15)
-	  | (rs2 << 20)
-	  | (funct7 << 25)) {}
+  : value((opcode   & constants::bitmasks::lowBits(7)) << 0
+	  | (funct3 & constants::bitmasks::lowBits(3)) << 12
+	  | (rd     & constants::bitmasks::lowBits(5)) << 7
+	  | (rs1    & constants::bitmasks::lowBits(5)) << 15
+	  | (rs2    & constants::bitmasks::lowBits(5)) << 20
+	  | (funct7 & constants::bitmasks::lowBits(7)) << 25) {}
 
 // I type
 Instruction::Instruction(const uint32_t opcode,
@@ -26,17 +26,17 @@ Instruction::Instruction(const uint32_t opcode,
 			 const uint32_t rd,
 			 const uint32_t rs1,
 			 const uint32_t imm)
-  : value(opcode << 0
-	  | funct3 << 12
-	  | rd << 7
-	  | rs1 << 15
-	  | imm << 20) {}
+  : value((opcode   & constants::bitmasks::lowBits(7))  << 0
+	  | (funct3 & constants::bitmasks::lowBits(3))  << 12
+	  | (rd     & constants::bitmasks::lowBits(5))  << 7
+	  | (rs1    & constants::bitmasks::lowBits(5))  << 15
+	  | (imm    & constants::bitmasks::lowBits(12)) << 20) {}
 
 // U type
 Instruction::Instruction(const uint32_t opcode, const uint32_t rd, const uint32_t imm)
-  : value(opcode << 0
-	  | rd << 7
-	  | (imm & 0xFFFFF000)) {} // truncate the immediate
+  : value((opcode & constants::bitmasks::lowBits(7)) << 0
+	  | (rd   & constants::bitmasks::lowBits(5)) << 7
+	  | (imm  & constants::bitmasks::highBits(20))) {} // truncate the immediate
 
 uint8_t Instruction::getOpcode() const {
   return this->value.to_ulong() & constants::bitmasks::OPCODE;
@@ -44,7 +44,8 @@ uint8_t Instruction::getOpcode() const {
 
 Instruction& Instruction::setOpcode(const uint32_t opcode) {
   // first clear, then set
-  this->value = (this->value.to_ulong() & ~constants::bitmasks::OPCODE) | (opcode & constants::bitmasks::OPCODE);
+  this->value = (this->value.to_ulong() & ~constants::bitmasks::OPCODE)
+    | (opcode & constants::bitmasks::lowBits(7));
   return *this;
 }
 
@@ -53,7 +54,8 @@ uint8_t Instruction::getRd() const {
 }
 
 Instruction& Instruction::setRd(const uint32_t rd) {
-  this->value = (this->value.to_ulong() & ~constants::bitmasks::RD) | ((rd & 0x1F) << 7);
+  this->value = (this->value.to_ulong() & ~constants::bitmasks::RD)
+    | ((rd & constants::bitmasks::lowBits(5)) << 7);
   return *this;
 }
 
@@ -62,7 +64,8 @@ uint8_t Instruction::getFunct3() const {
 }
 
 Instruction& Instruction::setFunct3(const uint32_t funct3) {
-  this->value = (this->value.to_ulong() & ~constants::bitmasks::FUNCT3) | ((funct3 & 0x7) << 12);
+  this->value = (this->value.to_ulong() & ~constants::bitmasks::FUNCT3)
+    | ((funct3 & constants::bitmasks::lowBits(3)) << 12);
   return *this;
 }
 
@@ -71,7 +74,8 @@ uint8_t Instruction::getRs1() const {
 }
 
 Instruction& Instruction::setRs1(const uint32_t rs1) {
-  this->value = (this->value.to_ulong() & ~constants::bitmasks::RS1) | ((rs1 & 0x1F) << 15);
+  this->value = (this->value.to_ulong() & ~constants::bitmasks::RS1)
+    | ((rs1 & constants::bitmasks::lowBits(5)) << 15);
   return *this;
 }
 
@@ -80,7 +84,8 @@ uint8_t Instruction::getRs2() const {
 }
 
 Instruction& Instruction::setRs2(const uint32_t rs2) {
-  this->value = (this->value.to_ulong() & ~constants::bitmasks::RS2) | ((rs2 & 0x1F) << 20);
+  this->value = (this->value.to_ulong() & ~constants::bitmasks::RS2)
+    | ((rs2 & constants::bitmasks::lowBits(5)) << 20);
   return *this;
 }
 
@@ -89,7 +94,8 @@ uint8_t Instruction::getFunct7() const {
 }
 
 Instruction& Instruction::setFunct7(const uint32_t funct7) {
-  this->value = (this->value.to_ulong() & ~constants::bitmasks::FUNCT7) | ((funct7 & 0x7F) << 25);
+  this->value = (this->value.to_ulong() & ~constants::bitmasks::FUNCT7)
+    | ((funct7 & constants::bitmasks::lowBits(7)) << 25);
   return *this;
 }
 
@@ -98,8 +104,8 @@ uint16_t Instruction::getImmI() const {
 }
 
 Instruction& Instruction::setImmI(const uint32_t imm) {
-  setFunct7(imm >> 5);
-  setRs2(imm & 0x1F);
+  setFunct7(imm & constants::bitmasks::lowBits(12) >> 5);
+  setRs2(imm & constants::bitmasks::lowBits(5));
   return *this;
 }
 
@@ -108,17 +114,17 @@ uint16_t Instruction::getImmS() const {
 }
 
 Instruction& Instruction::setImmS(const uint32_t imm) {
-  setFunct7(imm >> 5);
-  setRd(imm & 0x1F);
+  setFunct7((imm & constants::bitmasks::lowBits(12)) >> 5);
+  setRd(imm & constants::bitmasks::lowBits(5));
   return *this;
 }
 
 uint16_t Instruction::getImmB() const {
   uint16_t b12 = this->value[31];
   uint16_t b11 = this->value[7];
-  return (b12 << 12)
-    | (b11 << 11)
-    | ((static_cast<uint16_t>(getFunct7()) & 0x3F) << 5)
+  return b12 << 12
+    | b11 << 11
+    | static_cast<uint16_t>(getFunct7()) << 5
     | (static_cast<uint16_t>(getRd()) & 0x1E);
 }
 

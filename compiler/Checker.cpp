@@ -64,10 +64,10 @@ static const std::unordered_map<std::string, chF> checkFs = {
     return checkInstr(node, "rri", 0, 4);
     }},
   {"LUI", [] (const ParseNode& node) {
-    return checkInstr(node, "ri", 12, 31);
+    return checkInstr(node, "r[il]", 12, 31);
   }},
   {"AUIPC", [] (const ParseNode& node) {
-    return checkInstr(node, "ri", 12, 31);
+    return checkInstr(node, "r[il]", 12, 31);
   }},
   {"ADD", [] (const ParseNode& node) {
     return checkInstr(node, "rrr");
@@ -149,12 +149,20 @@ static const std::unordered_map<std::string, chF> checkFs = {
   }},
   {"SB", [] (const ParseNode& node) {
     return checkInstr(node, "rrl");
-  }}
+  }},
+  {"ECALL", [] (const ParseNode& node) {
+    return checkInstr(node, "");
+  }},
+  {"EBREAK", [] (const ParseNode& node) {
+    return checkInstr(node, "");
+  }},
 };
 
 std::optional<std::string> check(const ParseNode &node) noexcept {
   try {
-    return checkFs.at(node.instr)(node);
+    if (!node.label)
+      return checkFs.at(node.instr)(node);
+    return std::nullopt;
   }
   catch(std::out_of_range& e) {
     return "Unrecognized instruction: " + node.instr;

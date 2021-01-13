@@ -1,6 +1,8 @@
 #ifndef CONSTANTS_HPP
 #define CONSTANTS_HPP
 
+#include <cstdint>
+
 namespace constants {
   namespace opcode {
     const uint8_t OP_IMM = 0b0010011;
@@ -43,6 +45,16 @@ namespace constants {
     const uint32_t RS1    = 0b00000000000011111000000000000000;
     const uint32_t RS2    = 0b00000001111100000000000000000000;
     const uint32_t FUNCT7 = 0b11111110000000000000000000000000;
+
+    constexpr uint32_t lowBits(const uint8_t count) {
+      if (count > 32) return 0;
+      return static_cast<uint32_t>(~0) >> (32 - count);
+    }
+
+    constexpr uint32_t highBits(const uint8_t count)  {
+      if (count > 32) return 0;
+      return static_cast<uint32_t>(~0) << (32 - count);
+    }
   };
 };
 
