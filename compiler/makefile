@@ -32,6 +32,6 @@ $(OBJ_DIR)/tests/%.o: tests/%.cpp
 test: $(OUT_DIR)/ParserTests
 	@$(OUT_DIR)/ParserTests
 
-.PHONY: clean cleanTest
+.PHONY: clean
 clean:
 	$(RM) $(OUT_DIR)/RVC $(OUT_DIR)/ParserTest $(OBJ_DIR)/*.o $(OBJ_DIR)/tests/*.o
