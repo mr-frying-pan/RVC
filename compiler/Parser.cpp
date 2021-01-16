@@ -69,6 +69,7 @@ ParseNode parse(const std::string& line) noexcept {
     return node;
   }
   node.instr = instr;
+  node.label = false;
   for(std::string token; linestream >> token; ) {
     auto opt_reg = RegisterOperand::tryConstruct(token);
     if (opt_reg.has_value()) {
