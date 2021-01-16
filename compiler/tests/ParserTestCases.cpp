@@ -1,7 +1,7 @@
 #define CATCH_CONFIG_MAIN
 
 #include <catch2/catch.hpp>
-#include "../Parser.hpp"
+#include "Parser.hpp"
 
 TEST_CASE("Instr l l l", "[parser]") {
   auto parsed = parse("INSTR a b c");

@@ -6,8 +6,6 @@
 #include "Parser.hpp"
 #include "Checker.hpp"
 
-std::string& istring(std::string str);
-
 int main(int argc, char *argv[]) {
   // TODO: add argument for non-stop compilation and stop on first error if not given
   if(argc == 1) {

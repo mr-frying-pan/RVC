@@ -1,27 +1,27 @@
 #ifndef PARSER_HPP
 #define PARSER_HPP
 
+#include <cstdint>
 #include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
-#include "Instruction.hpp"
-
 class RegisterOperand {
 private:
-  uint8_t val;
+  std::uint8_t val;
   RegisterOperand(const uint8_t val) noexcept;
 public:
-  uint8_t value() const noexcept;
+  std::uint8_t value() const noexcept;
   static std::optional<RegisterOperand> tryConstruct(const std::string& str) noexcept;
 };
 
 class ImmediateOperand {
 private:
-  uint32_t val;
+  std::uint32_t val;
   ImmediateOperand(const uint32_t val) noexcept;
 public:
-  uint32_t value() const noexcept;
+  std::uint32_t value() const noexcept;
   static std::optional<ImmediateOperand> tryConstruct(const std::string& str) noexcept;
 };
 
