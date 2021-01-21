@@ -64,10 +64,20 @@ static const std::unordered_map<std::string, chF> checkFs = {
     return checkInstr(node, "rri", 0, 4);
     }},
   {"LUI", [] (const ParseNode& node) {
-    return checkInstr(node, "r[il]", 12, 31);
+    // SEHR inefficient. I need something better :/
+    auto numeric = checkInstr(node, "ri", 12, 31);
+    auto label = checkInstr(node, "rl");
+    return !numeric.has_value()
+      ? numeric
+      : label;
   }},
   {"AUIPC", [] (const ParseNode& node) {
-    return checkInstr(node, "r[il]", 12, 31);
+    // SEHR inefficient. I need something better :/
+    auto numeric = checkInstr(node, "ri", 12, 31);
+    auto label = checkInstr(node, "rl");
+    return !numeric.has_value()
+      ? numeric
+      : label;
   }},
   {"ADD", [] (const ParseNode& node) {
     return checkInstr(node, "rrr");
