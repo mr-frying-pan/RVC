@@ -18,7 +18,7 @@ $(OUT_DIR)/RVC: $(OBJS) $(MAIN_OBJ)
 	$(CXX) $(MAIN_OBJ) $(OBJS) -o $@
 
 # Probably will refactor this later
-$(OUT_DIR)/ParserTests: $(TESTOBJ) $(OBJS)
+$(OUT_DIR)/Tests: $(TESTOBJ) $(OBJS)
 	$(CXX) $(TESTOBJ) $(OBJS) -o $@
 
 $(OBJ_DIR)/%.o: %.cpp
@@ -29,8 +29,8 @@ $(OBJ_DIR)/tests/%.o: tests/%.cpp
 	mkdir -p $(OBJ_DIR)/tests
 	$(CXX) -I . $(CXXFLAGS) -c $< -o $@
 
-test: $(OUT_DIR)/ParserTests
-	@$(OUT_DIR)/ParserTests
+test: $(OUT_DIR)/Tests
+	@$(OUT_DIR)/Tests
 
 .PHONY: clean
 clean:
