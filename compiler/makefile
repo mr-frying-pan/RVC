@@ -17,7 +17,6 @@ all: $(OUT_DIR)/RVC test
 $(OUT_DIR)/RVC: $(OBJS) $(MAIN_OBJ)
 	$(CXX) $(MAIN_OBJ) $(OBJS) -o $@
 
-# Probably will refactor this later
 $(OUT_DIR)/Tests: $(TESTOBJ) $(OBJS)
 	$(CXX) $(TESTOBJ) $(OBJS) -o $@
 
@@ -34,4 +33,4 @@ test: $(OUT_DIR)/Tests
 
 .PHONY: clean
 clean:
-	$(RM) $(OUT_DIR)/RVC $(OUT_DIR)/ParserTest $(OBJ_DIR)/*.o $(OBJ_DIR)/tests/*.o
+	$(RM) $(OUT_DIR)/RVC $(OUT_DIR)/Tests $(OBJ_DIR)/*.o $(OBJ_DIR)/tests/*.o

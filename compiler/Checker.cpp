@@ -1,180 +1,195 @@
 #include "Checker.hpp"
 
+#include <cstddef>
+#include <memory>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 
-static std::string errline(const std::string& expected, const std::string& got) {
-  return "Expected " + expected + ", got " + got + ".";
+#include <iostream>
+#include <variant>
+
+#include "Parser.hpp"
+
+
+ArgCountError::ArgCountError(int expected, int got) noexcept
+  : got(got) {}
+
+std::string ArgCountError::to_string() const noexcept {
+  return "Expected " + std::to_string(expected) + " arguments, got " + std::to_string(got) + ".";
 }
 
-static std::string errline(const uint32_t expected, const uint32_t got) {
-  return errline(std::to_string(expected) + " arguments", std::to_string(got));
+
+OperandTypeError::OperandTypeError(const std::string &expected) noexcept
+    : expected(expected) {}
+
+std::string OperandTypeError::to_string() const noexcept {
+  return "Expected operand to be a " + expected + ".";
 }
 
-static std::optional<std::string> checkInstr(const ParseNode& node, const std::string& argFormat,
-					     const uint8_t minImmBit = 0, const uint8_t maxImmBit = 0) {
+
+ImmediateWillBeTruncatedError::ImmediateWillBeTruncatedError(std::uint32_t imm,
+							     std::uint8_t lowBit) noexcept
+  : imm(imm), lowBit(lowBit) {}
+
+std::string ImmediateWillBeTruncatedError::to_string() const noexcept {
+  return "Value " + std::to_string(imm) + " is too small. "
+    + std::to_string(lowBit) + " lower bits would be lost.";
+}
+
+
+ImmediateTooBigError::ImmediateTooBigError(std::uint32_t imm,
+                                           std::uint8_t highBit) noexcept
+    : imm(imm), highBit(highBit) {}
+
+std::string ImmediateTooBigError::to_string() const noexcept {
+  return "Value " + std::to_string(imm) + " is too big. Max width is " + std::to_string(highBit) + " bits.";
+}
+
+
+UnrecognizedInstructionError::UnrecognizedInstructionError(const std::string &instr) noexcept
+    : instr(instr) {}
+
+std::string UnrecognizedInstructionError::to_string() const noexcept {
+  return "Unrecognised instruction " + instr + ".";
+}
+
+static std::unique_ptr<SyntaxError>
+isRegisterOperand(const std::variant<RegisterOperand, ImmediateOperand, LabelOperand>& operand) {
+  if (!std::holds_alternative<RegisterOperand>(operand))
+    return std::unique_ptr<SyntaxError>(new OperandTypeError("register"));
+  return nullptr;
+}
+
+static std::unique_ptr<SyntaxError>
+isImmediateOperand(const std::variant<RegisterOperand, ImmediateOperand, LabelOperand>& operand,
+		   const std::uint8_t minImmBit,
+		   const std::uint8_t maxImmBit) {
+  if (!std::holds_alternative<ImmediateOperand>(operand))
+    return std::unique_ptr<SyntaxError>(new OperandTypeError("immediate"));
+
+  uint32_t value = std::get<ImmediateOperand>(operand).value();
+  if ( !(value & (~0 >> (32 - minImmBit))) )
+    return std::unique_ptr<SyntaxError>(new ImmediateWillBeTruncatedError(value, minImmBit));
+  
+  if( value >> (maxImmBit + 1) )
+    return std::unique_ptr<SyntaxError>(new ImmediateTooBigError(value, maxImmBit - minImmBit + 1));
+  
+  return nullptr;
+}
+
+static std::unique_ptr<SyntaxError>
+isLabelOperand(const std::variant<RegisterOperand, ImmediateOperand, LabelOperand>& operand) {
+  if (!std::holds_alternative<LabelOperand>(operand))
+    return std::unique_ptr<SyntaxError>(new OperandTypeError("label"));
+  return nullptr;
+}
+
+static std::unique_ptr<SyntaxError> checkInstr(const ParseNode& node, const std::string& argFormat,
+					       const uint8_t minImmBit, const uint8_t maxImmBit) {
   if (node.operands.size() != argFormat.length())
-    return errline(argFormat.length(), node.operands.size());
-  for(size_t i = 0; i < node.operands.size(); i++) {
-    if (argFormat[i] == 'r' && !std::holds_alternative<RegisterOperand>(node.operands[i]))
-      return "Expected a register as " + std::to_string(i+1) + " argument.";
-    if (argFormat[i] == 'i' && !std::holds_alternative<ImmediateOperand>(node.operands[i]))
-      return "Expected an immediate as " + std::to_string(i+1) + " argument.";
-    if (argFormat[i] == 'i') {
-      uint32_t operand = std::get<ImmediateOperand>(node.operands[i]).value();
-      if ( !(operand & (~0 >> (32 - minImmBit))) )
-	return "Value " + std::to_string(operand) + " is too small. "
-	  + std::to_string(minImmBit) + " lower bits would be lost.";
-      if( operand >> (maxImmBit + 1) )
-	  return "Value " + std::to_string(operand) + " is too big. Max width is " + std::to_string(maxImmBit - minImmBit + 1) + " bits.";
+    return std::unique_ptr<SyntaxError>(new ArgCountError(argFormat.length(), node.operands.size()));
+
+  // for each required parameter type check passed parameter
+  for(size_t i = 0; i < argFormat.length(); i++) {
+    switch (argFormat[i]) {
+    case 'r': {
+      auto check_result = isRegisterOperand(node.operands[i]);
+      if (check_result.get() != nullptr)
+	return check_result;
+      break;
     }
-    if (argFormat[i] == 'l' && !std::holds_alternative<LabelOperand>(node.operands[i]))
-      return "Expected a label as " + std::to_string(i) + " argument.";
+    case 'i': {
+      auto check_result = isImmediateOperand(node.operands[i], minImmBit, maxImmBit);
+      if (check_result.get() != nullptr)
+	return check_result;
+      break;
+    }
+    case 't': {
+      auto immediate = isImmediateOperand(node.operands[i], minImmBit, maxImmBit);
+      if (immediate.get() == nullptr)
+	return immediate;
+      // fall through to l case
+    }
+    case 'l':
+      return isLabelOperand(node.operands[i]);
+    }
   }
-  return std::nullopt;
+  return nullptr;
 }
 
-typedef std::optional<std::string>(*chF)(const ParseNode&);
+/**
+ * Helper macro to define instruction map.
+ * @param key        instruction name (as it is supposed to be typed in the file
+ * @param argFormat  a string, one character per parameter required:
+ *                       r – register
+ *                       i – immediate
+ *                       t – either label or immediate
+ * @param minVal     lowest bit of an immediate which will be included in the resulting machine code
+ * @param maxVal     highest bit on an immediate which will be included in the resulting machine code
+ */
+#define MAP_LAMBDA(key, argFormat, minVal, maxVal)      \
+  {key, [] (const ParseNode& node) {                    \
+    return checkInstr(node, argFormat, minVal, maxVal); \
+  }}
+
+// Shortcut typedef
+typedef std::unique_ptr<SyntaxError> (*chF)(const ParseNode &);
+
+// Map of instructions to checking function with correct parameters for that instruction
 static const std::unordered_map<std::string, chF> checkFs = {
-  {"ADDI",  [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 11);
-  }},
-  {"SLTI",  [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 11);
-  }},
-  {"SLTIU", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 11);
-  }},
-  {"ANDI", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 11);
-  }},
-  {"ORI", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 11);
-  }},
-  {"XORI", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 11);
-  }},
-  {"SLLI", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 4);
-    }},
-  {"SRLI", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 4);
-    }},
-  {"SRAI", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 4);
-    }},
-  {"LUI", [] (const ParseNode& node) {
-    // SEHR inefficient. I need something better :/
-    auto numeric = checkInstr(node, "ri", 12, 31);
-    auto label = checkInstr(node, "rl");
-    return !numeric.has_value()
-      ? numeric
-      : label;
-  }},
-  {"AUIPC", [] (const ParseNode& node) {
-    // SEHR inefficient. I need something better :/
-    auto numeric = checkInstr(node, "ri", 12, 31);
-    auto label = checkInstr(node, "rl");
-    return !numeric.has_value()
-      ? numeric
-      : label;
-  }},
-  {"ADD", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"SLT", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"SLTU", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"AND", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"OR", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"XOR", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"SLL", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"SRL", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"SUB", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"SRA", [] (const ParseNode& node) {
-    return checkInstr(node, "rrr");
-  }},
-  {"JAL", [] (const ParseNode& node) {
-    return checkInstr(node, "rl");
-  }},
-  {"JALR", [] (const ParseNode& node) {
-    return checkInstr(node, "rri", 0, 11);
-  }},
-  {"BEQ", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"BNE", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"BLT", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"BLTU", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"BGE", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"BGEU", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"LW", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"LW", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"LH", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"LHU", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"LB", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"LBU", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"SW", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"SH", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"SB", [] (const ParseNode& node) {
-    return checkInstr(node, "rrl");
-  }},
-  {"ECALL", [] (const ParseNode& node) {
-    return checkInstr(node, "");
-  }},
-  {"EBREAK", [] (const ParseNode& node) {
-    return checkInstr(node, "");
-  }},
+  MAP_LAMBDA("ADDI", "rri", 0, 11),
+  MAP_LAMBDA("SLTI", "rri", 0, 11),
+  MAP_LAMBDA("SLTIU", "rri", 0, 11),
+  MAP_LAMBDA("ANDI", "rri", 0, 11),
+  MAP_LAMBDA("ORI", "rri", 0, 11),
+  MAP_LAMBDA("XORI", "rri", 0, 11),
+  MAP_LAMBDA("SLLI", "rri", 0, 4),
+  MAP_LAMBDA("SRLI", "rri", 0, 4),
+  MAP_LAMBDA("SRAI", "rri", 0, 4),
+  MAP_LAMBDA("LUI", "rt", 12, 31),
+  MAP_LAMBDA("AUIPC", "rt", 12, 31),
+  MAP_LAMBDA("ADD", "rrr", 0, 0),
+  MAP_LAMBDA("SLT", "rrr", 0, 0),
+  MAP_LAMBDA("SLTU", "rrr", 0, 0),
+  MAP_LAMBDA("AND", "rrr", 0, 0),
+  MAP_LAMBDA("OR", "rrr", 0, 0),
+  MAP_LAMBDA("XOR", "rrr", 0, 0),
+  MAP_LAMBDA("SLL", "rrr", 0, 0),
+  MAP_LAMBDA("SRL", "rrr", 0, 0),
+  MAP_LAMBDA("SUB", "rrr", 0, 0),
+  MAP_LAMBDA("SRA", "rrr", 0, 0),
+  MAP_LAMBDA("JAL", "rl", 0, 0),
+  MAP_LAMBDA("JALR", "rri", 0, 11),
+  MAP_LAMBDA("BEQ", "rrl", 0, 0),
+  MAP_LAMBDA("BNE", "rrl", 0, 0),
+  MAP_LAMBDA("BLT", "rrl", 0, 0),
+  MAP_LAMBDA("BLTU", "rrl", 0, 0),
+  MAP_LAMBDA("BGE", "rrl", 0, 0),
+  MAP_LAMBDA("BGEU", "rrl", 0, 0),
+  MAP_LAMBDA("LW", "rrl", 0, 0),
+  MAP_LAMBDA("LW", "rrl", 0, 0),
+  MAP_LAMBDA("LH", "rrl", 0, 0),
+  MAP_LAMBDA("LHU", "rrl", 0, 0),
+  MAP_LAMBDA("LB", "rrl", 0, 0),
+  MAP_LAMBDA("LBU", "rrl", 0, 0),
+  MAP_LAMBDA("SW", "rrl", 0, 0),
+  MAP_LAMBDA("SH", "rrl", 0, 0),
+  MAP_LAMBDA("SB", "rrl", 0, 0),
+  MAP_LAMBDA("ECALL", "", 0, 0),
+  MAP_LAMBDA("EBREAK", "", 0, 0)
 };
 
-std::optional<std::string> check(const ParseNode &node) noexcept {
+// Remove macro after map was defined.
+#undef MAP_LAMBDA
+
+std::unique_ptr<SyntaxError> check(const ParseNode &node) noexcept {
   try {
     if (!node.label)
       return checkFs.at(node.instr)(node);
-    return std::nullopt;
+    return nullptr;
   }
   catch(std::out_of_range& e) {
-    return "Unrecognized instruction: " + node.instr;
+    return std::unique_ptr<SyntaxError>(new UnrecognizedInstructionError(node.instr));
   }
 }

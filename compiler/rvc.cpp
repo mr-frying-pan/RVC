@@ -18,10 +18,13 @@ int main(int argc, char *argv[]) {
   for(std::string line; std::getline(in, line); linenum++) {
     if(line == "")
       continue;
+    // Parse line, get instruction and its parameters.
     ParseNode parseNode = parse(line);
+
+    // Check instruction and parameter types.
     auto error = check(parseNode);
-    if (error.has_value())
-      std::cout << "LINE " << linenum << ": " << error.value() << std::endl;
+    if (error.get() != nullptr)
+      std::cout << "LINE " << linenum << ": " << error.get()->to_string() << std::endl;
     std::cout << line << std::endl;
   }
 

@@ -22,7 +22,7 @@ std::optional<RegisterOperand> RegisterOperand::tryConstruct(const std::string& 
   uint32_t reg;
   try {
     reg = std::stoul(num);
-    if (reg > 31) // number is bigger than there are registers.
+    if (reg > 31) // registers go only up to x31, do not allow larger numbers
       return std::nullopt;
   }
   catch(std::invalid_argument& e) {
