@@ -10,7 +10,3 @@ RV32I is in progress. Others may happen later.
 ## Executable format
 
 Will exactly define this when I'll reach executable creation step.
-
-## But... why?..
-
-Because I want to. It's my github repository.
