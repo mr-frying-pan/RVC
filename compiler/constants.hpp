@@ -46,13 +46,26 @@ namespace constants {
     const uint32_t RS2    = 0b00000001111100000000000000000000;
     const uint32_t FUNCT7 = 0b11111110000000000000000000000000;
 
+
+    /**
+     * Creates a mask of given size to get low bits.
+     * @param count    how many bits mask should take.
+     * @returns    mask which when AND'ed with the value leaves only count low bits.
+     */
     constexpr uint32_t lowBits(const uint8_t count) {
-      if (count > 32) return 0;
+      if (count == 0) return 0;
+      if (count > 31) return ~0;
       return static_cast<uint32_t>(~0) >> (32 - count);
     }
 
-    constexpr uint32_t highBits(const uint8_t count)  {
-      if (count > 32) return 0;
+    /**
+     * Creates a mask of given size to get high bits.
+     * @param count     how many bits mask should take.
+     * @returns    mask which when AND'ed with the value leaves only count high bits.
+     */
+    constexpr uint32_t highBits(const uint8_t count) {
+      if (count == 0) return 0;
+      if (count > 31) return ~0;
       return static_cast<uint32_t>(~0) << (32 - count);
     }
   };

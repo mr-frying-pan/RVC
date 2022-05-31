@@ -1,7 +1,9 @@
 #include "Checker.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -10,10 +12,13 @@
 #include <variant>
 
 #include "Parser.hpp"
+#include "constants.hpp"
+
+#include <bitset>
 
 
 ArgCountError::ArgCountError(int expected, int got) noexcept
-  : got(got) {}
+  : expected(expected), got(got) {}
 
 std::string ArgCountError::to_string() const noexcept {
   return "Expected " + std::to_string(expected) + " arguments, got " + std::to_string(got) + ".";
@@ -28,22 +33,19 @@ std::string OperandTypeError::to_string() const noexcept {
 }
 
 
-ImmediateWillBeTruncatedError::ImmediateWillBeTruncatedError(std::uint32_t imm,
-							     std::uint8_t lowBit) noexcept
+LowBitsLostError::LowBitsLostError(std::uint32_t imm, std::uint8_t lowBit) noexcept
   : imm(imm), lowBit(lowBit) {}
 
-std::string ImmediateWillBeTruncatedError::to_string() const noexcept {
-  return "Value " + std::to_string(imm) + " is too small. "
-    + std::to_string(lowBit) + " lower bits would be lost.";
+std::string LowBitsLostError::to_string() const noexcept {
+  return std::to_string(lowBit) + " lower bits would be lost in value " + std::to_string(imm) + ".";
 }
 
 
-ImmediateTooBigError::ImmediateTooBigError(std::uint32_t imm,
-                                           std::uint8_t highBit) noexcept
-    : imm(imm), highBit(highBit) {}
+HighBitsLostError::HighBitsLostError(std::uint32_t imm,std::uint8_t highBit) noexcept
+  : imm(imm), highBit(highBit) {}
 
-std::string ImmediateTooBigError::to_string() const noexcept {
-  return "Value " + std::to_string(imm) + " is too big. Max width is " + std::to_string(highBit) + " bits.";
+std::string HighBitsLostError::to_string() const noexcept {
+  return std::to_string(highBit) + " high bits would be lost in value " + std::to_string(imm) + ".";
 }
 
 
@@ -69,11 +71,25 @@ isImmediateOperand(const std::variant<RegisterOperand, ImmediateOperand, LabelOp
     return std::unique_ptr<SyntaxError>(new OperandTypeError("immediate"));
 
   uint32_t value = std::get<ImmediateOperand>(operand).value();
-  if ( !(value & (~0 >> (32 - minImmBit))) )
-    return std::unique_ptr<SyntaxError>(new ImmediateWillBeTruncatedError(value, minImmBit));
-  
-  if( value >> (maxImmBit + 1) )
-    return std::unique_ptr<SyntaxError>(new ImmediateTooBigError(value, maxImmBit - minImmBit + 1));
+
+  std::bitset<32> bitv = value;
+  std::bitset<32> lowmask    = constants::bitmasks::lowBits(minImmBit);
+  std::bitset<32> highmask   = constants::bitmasks::highBits(32 - maxImmBit - 1);
+  std::bitset<32> lowmasked  = value & constants::bitmasks::lowBits(minImmBit);
+  std::bitset<32> highmasked = value & constants::bitmasks::highBits(32 - maxImmBit - 1);
+
+  std::cout << value << ":" << std::endl
+	    << "\t         v: " << bitv << std::endl
+	    << "\t   lowmask: " << lowmask << " (" << (int)minImmBit << ")" << std::endl
+	    << "\t  highmask: " << highmask << " (" << (int)maxImmBit << ")" << std::endl
+	    << "\t lowmasked: " << lowmasked << " (" << lowmasked.any() << ")" << std::endl
+	    << "\thighmasked: " << highmasked << " (" << highmasked.any() << ")" << std::endl;
+
+  if (value & constants::bitmasks::lowBits(minImmBit)) // true when low bits are non-zero
+    return std::unique_ptr<SyntaxError>(new LowBitsLostError(value, minImmBit));
+
+  if (value & constants::bitmasks::highBits(32 - maxImmBit - 1)) // true when high bits are non-zero
+    return std::unique_ptr<SyntaxError>(new HighBitsLostError(value, 32 - maxImmBit));
   
   return nullptr;
 }
@@ -106,10 +122,9 @@ static std::unique_ptr<SyntaxError> checkInstr(const ParseNode& node, const std:
       break;
     }
     case 't': {
-      auto immediate = isImmediateOperand(node.operands[i], minImmBit, maxImmBit);
-      if (immediate.get() == nullptr)
-	return immediate;
-      // fall through to l case
+      if (std::holds_alternative<ImmediateOperand>(node.operands[i]))
+	return isImmediateOperand(node.operands[i], minImmBit, maxImmBit);
+      // else fall through to l case
     }
     case 'l':
       return isLabelOperand(node.operands[i]);
