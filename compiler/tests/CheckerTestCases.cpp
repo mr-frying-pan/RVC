@@ -3,7 +3,7 @@
 #include "../Checker.hpp"
 
 #define CHECKER_SUCCESS(CATEGORY, LINE)					\
-  TEST_CASE("Successful " CATEGORY " instruction (" LINE ") check", "[checker][" CATEGORY "]") { \
+  TEST_CASE("Correct " CATEGORY " instruction (" LINE ") check", "[checker][" CATEGORY "]") { \
     std::string line { LINE };						\
     auto parsed = parse(line);						\
     auto res = check(parsed);						\
@@ -16,7 +16,7 @@
   }
 
 #define CHECKER_ERROR(CATEGORY, LINE, ERRTYPE)				\
-  TEST_CASE(CATEGORY " instruction (" LINE ")", "[checker][" CATEGORY "]") { \
+  TEST_CASE("Wrong " CATEGORY " instruction (" LINE ")", "[checker][" CATEGORY "]") { \
     std::string line { LINE };						\
     auto parsed = parse(line);						\
     auto res = check(parsed);						\
@@ -29,17 +29,20 @@
 CHECKER_ERROR("Any", "UNKNOWN", UnrecognizedInstructionError);
 CHECKER_ERROR("Any", "ADDI x1 x2", ArgCountError);
 
-CHECKER_SUCCESS("I", "ADDI x1 x2 4095"); // 4095 is the largest immediate which should be acceptable
-CHECKER_ERROR("I", "ADDI xbad x1 12", OperandTypeError);
-CHECKER_ERROR("I", "ADDI x1 xbad 12", OperandTypeError);
-CHECKER_ERROR("I", "ADDI x1 x1 bad", OperandTypeError);
-CHECKER_ERROR("I", "ADDI x1 x1 4096", HighBitsLostError);
-// with type I instruction immediate cannot be truncated
-CHECKER_SUCCESS("R", "ADD x2 x4 x5");
-CHECKER_ERROR("R", "ADD xbad x4 x5", OperandTypeError);
-CHECKER_ERROR("R", "ADD x2 xbad x5", OperandTypeError);
-CHECKER_ERROR("R", "ADD x2 x4 xbad", OperandTypeError);
+CHECKER_SUCCESS("rri", "ADDI x1 x2 4095"); // 4095 is the largest immediate which should be acceptable
+CHECKER_ERROR("r", "ADDI xbad x1 12", OperandTypeError);
+CHECKER_ERROR("r", "ADDI x1 xbad 12", OperandTypeError);
+CHECKER_ERROR("i", "ADDI x1 x1 bad", OperandTypeError);
+CHECKER_ERROR("i", "ADDI x1 x1 4096", HighBitsLostError);
 
-CHECKER_SUCCESS("U", "LUI x1 lbl");
-CHECKER_SUCCESS("U", "LUI x1 4294963200"); // all bits of an immediate which would not be truncated
-CHECKER_ERROR("U", "LUI x1 4294963201", LowBitsLostError) // leftmost bit will would be truncated
+// with type I instruction immediate cannot be truncated
+CHECKER_SUCCESS("rrr", "ADD x2 x4 x5");
+CHECKER_ERROR("r", "ADD xbad x4 x5", OperandTypeError);
+CHECKER_ERROR("r", "ADD x2 xbad x5", OperandTypeError);
+CHECKER_ERROR("r", "ADD x2 x4 xbad", OperandTypeError);
+
+CHECKER_SUCCESS("rt", "LUI x1 lbl");
+CHECKER_SUCCESS("rt", "LUI x1 4294963200"); // all bits of an immediate which would not be truncated
+CHECKER_ERROR("t", "LUI x1 4294963201", LowBitsLostError) // leftmost bit will would be truncated
+
+CHECKER_SUCCESS("rl", "JAL x1 lbl");

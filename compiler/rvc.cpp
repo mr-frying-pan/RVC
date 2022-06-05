@@ -23,8 +23,10 @@ int main(int argc, char *argv[]) {
 
     // Check instruction and parameter types.
     auto error = check(parseNode);
-    if (error.get() != nullptr)
+    if (error.get() != nullptr) {
       std::cout << "LINE " << linenum << ": " << error.get()->to_string() << std::endl;
+      continue; // do not compile instruction if type check failed
+    }
     std::cout << line << std::endl;
   }
 

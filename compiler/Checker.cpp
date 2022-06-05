@@ -1,20 +1,13 @@
 #include "Checker.hpp"
 
-#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 
-#include <iostream>
-#include <variant>
-
 #include "Parser.hpp"
 #include "constants.hpp"
-
-#include <bitset>
 
 
 ArgCountError::ArgCountError(int expected, int got) noexcept
@@ -71,19 +64,6 @@ isImmediateOperand(const std::variant<RegisterOperand, ImmediateOperand, LabelOp
     return std::unique_ptr<SyntaxError>(new OperandTypeError("immediate"));
 
   uint32_t value = std::get<ImmediateOperand>(operand).value();
-
-  std::bitset<32> bitv = value;
-  std::bitset<32> lowmask    = constants::bitmasks::lowBits(minImmBit);
-  std::bitset<32> highmask   = constants::bitmasks::highBits(32 - maxImmBit - 1);
-  std::bitset<32> lowmasked  = value & constants::bitmasks::lowBits(minImmBit);
-  std::bitset<32> highmasked = value & constants::bitmasks::highBits(32 - maxImmBit - 1);
-
-  std::cout << value << ":" << std::endl
-	    << "\t         v: " << bitv << std::endl
-	    << "\t   lowmask: " << lowmask << " (" << (int)minImmBit << ")" << std::endl
-	    << "\t  highmask: " << highmask << " (" << (int)maxImmBit << ")" << std::endl
-	    << "\t lowmasked: " << lowmasked << " (" << lowmasked.any() << ")" << std::endl
-	    << "\thighmasked: " << highmasked << " (" << highmasked.any() << ")" << std::endl;
 
   if (value & constants::bitmasks::lowBits(minImmBit)) // true when low bits are non-zero
     return std::unique_ptr<SyntaxError>(new LowBitsLostError(value, minImmBit));
@@ -183,7 +163,7 @@ static const std::unordered_map<std::string, chF> checkFs = {
   MAP_LAMBDA("BGE", "rrl", 0, 0),
   MAP_LAMBDA("BGEU", "rrl", 0, 0),
   MAP_LAMBDA("LW", "rrl", 0, 0),
-  MAP_LAMBDA("LW", "rrl", 0, 0),
+  MAP_LAMBDA("LWU", "rrl", 0, 0),
   MAP_LAMBDA("LH", "rrl", 0, 0),
   MAP_LAMBDA("LHU", "rrl", 0, 0),
   MAP_LAMBDA("LB", "rrl", 0, 0),
@@ -195,7 +175,7 @@ static const std::unordered_map<std::string, chF> checkFs = {
   MAP_LAMBDA("EBREAK", "", 0, 0)
 };
 
-// Remove macro after map was defined.
+// Remove macro after map is defined.
 #undef MAP_LAMBDA
 
 std::unique_ptr<SyntaxError> check(const ParseNode &node) noexcept {
