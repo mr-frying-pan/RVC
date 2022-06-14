@@ -22,6 +22,9 @@ static const std::unordered_map<std::string, cplF> compileFs = {
   MAP_LAMBDA("ADDI", compileI(constants::opcode::OP_IMM, constants::funct3::ADDI, node)),
   MAP_LAMBDA("SLTI", compileI(constants::opcode::OP_IMM, constants::funct3::SLTI, node)),
   MAP_LAMBDA("SLTIU", compileI(constants::opcode::OP_IMM, constants::funct3::SLTIU, node)),
+  MAP_LAMBDA("ANDI", compileI(constants::opcode::OP_IMM, constants::funct3::ANDI, node)),
+  MAP_LAMBDA("ORI", compileI(constants::opcode::OP_IMM, constants::funct3::ORI, node)),
+  MAP_LAMBDA("XORI", compileI(constants::opcode::OP_IMM, constants::funct3::XORI, node)),
 };
 
 std::pair<Instruction, std::string> compile(const ParseNode& node) {
